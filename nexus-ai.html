@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>JAMIE — Adaptive AI Interface</title>
+<meta name="theme-color" id="theme-meta" content="#050508">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;600;700&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+/* --- styles preserved and simplified from original nexus design --- */
+:root{--bg-deep:#050508;--bg-surface:#0d0d17;--accent:#b026ff;--text:#e8e8f5;--font-d:'Oxanium',sans-serif;--font-m:'JetBrains Mono',monospace;--r:12px;--rs:6px;--sw:300px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg-deep);color:var(--text);font-family:var(--font-m);font-size:14px}
+#app{display:flex;flex-direction:column;height:100vh}
+#topbar{height:56px;display:flex;align-items:center;padding:0 14px;background:color-mix(in srgb,var(--bg-surface) 82%, transparent);border-bottom:1px solid rgba(255,255,255,.06)}
+.brand{font-family:var(--font-d);font-weight:700;color:var(--accent);margin-left:10px}
+#wsp{display:flex;flex:1;min-height:0}
+#sb{width:var(--sw);background:var(--bg-surface);border-right:1px solid rgba(255,255,255,.04);display:flex;flex-direction:column}
+#cmain{flex:1;display:flex;flex-direction:column;min-width:0}
+#msgs{flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:80%;}
+.msg.user{align-self:flex-end}
+.msg.ai{align-self:flex-start}
+.mbub{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03)}
+#izone{padding:10px;background:var(--bg-surface);border-top:1px solid rgba(255,255,255,.04);display:flex;gap:8px;align-items:center}
+#cin{flex:1;background:transparent;border:1px solid rgba(255,255,255,.04);padding:8px;border-radius:8px;color:var(--text);min-height:44px;max-height:160px;overflow:auto}
+.btn{padding:8px 12px;border-radius:8px;background:rgba(176,38,255,.08);color:var(--accent);border:1px solid rgba(176,38,255,.12);cursor:pointer}
+.small{font-size:12px;padding:6px 8px}
+#setup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:50}
+.card{background:var(--bg-surface);padding:18px;border-radius:12px;width:420px;border:1px solid rgba(255,255,255,.04)}
+label{font-size:12px;color:rgba(255,255,255,.7);display:block;margin-bottom:6px}
+input,select,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:transparent;color:var(--text);}
+.footer-note{font-size:12px;color:rgba(255,255,255,.5);margin-top:8px}
+</style>
+</head>
+<body>
+
+<!-- Setup (first-run / add provider) -->
+<div id="setup" style="display:none">
+  <div class="card">
+    <div style="font-family:var(--font-d);font-size:20px;color:var(--accent);">JAMIE — Connect an AI</div>
+    <p class="footer-note">OpenRouter (free) is recommended for browser usage to avoid CORS and key exposure when using your own proxy. You can add OpenRouter, OpenAI, Gemini or Anthropic providers.</p>
+
+    <div style="margin-top:12px">
+      <label>Provider</label>
+      <select id="prov-type"><option value="openrouter">OpenRouter</option><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic</option></select>
+    </div>
+    <div style="margin-top:10px">
+      <label>API Key / Token</label>
+      <input id="sk" type="password" placeholder="Paste API key / token">
+    </div>
+    <div style="margin-top:10px">
+      <label>Model (optional)</label>
+      <input id="sm" placeholder="e.g. gpt-4o-mini or or:gpt-4o-mini">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn" onclick="document.getElementById('setup').style.display='none'">Cancel</button>
+      <button class="btn" onclick="addProvider()">Save provider</button>
+    </div>
+    <div class="footer-note">Need an OpenRouter key? Get one at <a href="https://openrouter.ai/" target="_blank">openrouter.ai</a>. For browser use, OpenRouter supports free keys and is typically CORS-friendly.</div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <button class="btn small" onclick="toggleSb()">☰</button>
+    <div class="brand">JAMIE</div>
+    <div style="flex:1"></div>
+    <div id="mdisplay" style="margin-right:10px">—</div>
+    <button class="btn small" onclick="showSettings()">Settings</button>
+  </div>
+
+  <div id="wsp">
+    <aside id="sb">
+      <div style="padding:12px;border-bottom:1px solid rgba(255,255,255,.02)">
+        <div style="font-size:13px;color:rgba(255,255,255,.8);margin-bottom:8px">Providers</div>
+        <div id="prov-list" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div style="margin-top:12px"><button class="btn small" onclick="openAddProvider()">+ Add provider</button></div>
+      </div>
+      <div style="padding:12px;flex:1;overflow:auto">
+        <div style="font-size:13px;color:rgba(255,255,255,.8);margin-bottom:8px">Memory</div>
+        <div id="mlist" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </aside>
+
+    <main id="cmain">
+      <div id="msgs">
+        <div id="empty" style="text-align:center;opacity:.6"><div style="font-family:var(--font-d);font-size:40px;color:var(--accent)">JAMIE</div><div>Adaptive AI — Ready</div></div>
+      </div>
+      <div id="izone">
+        <textarea id="cin" placeholder="Message JAMIE..." onkeydown="onKey(event)"></textarea>
+        <button class="btn" id="sbtn" onclick="sendMsg()">Send</button>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal / settings -->
+<div id="mbg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:60">
+  <div class="card" style="width:520px;max-height:80vh;overflow:auto" id="mc"></div>
+</div>
+
+<script>
+// JAMIE frontend — multi-provider with OpenRouter support
+const P = 'jamie_';
+const ls = k=>localStorage.getItem(P+k);
+const lss = (k,v)=>localStorage.setItem(P+k,v);
+const lsj = k=>{try{return JSON.parse(ls(k));}catch{return null}};
+const lssj = (k,v)=>lss(k,JSON.stringify(v));
+
+const S = {
+  providers: lsj('providers') || [],
+  activeProv: ls('activeProv') || null,
+  soul: ls('soul') || `You are JAMIE — an adaptive assistant.`,
+  sessions: lsj('sessions')||[],
+  memPkts: lsj('memPkts')||[],
+  history: [],
+  curSid: null,
+  msgCount: 0,
+  streaming: false
+};
+
+function boot(){ renderProviders(); renderMem(); if(S.providers.length && !S.activeProv) { S.activeProv = S.providers[0].id; lss('activeProv', S.activeProv); } updateProviderDisplay(); }
+boot();
+
+function openAddProvider(){ document.getElementById('mc').innerHTML = `
+  <div style="font-family:var(--font-d);font-size:18px;color:var(--accent)">Add provider</div>
+  <div style="margin-top:8px"><label>Provider</label><select id="add-type"><option value="openrouter">OpenRouter</option><option value="openai">OpenAI</option><option value="gemini">Gemini</option><option value="anthropic">Anthropic</option></select></div>
+  <div style="margin-top:8px"><label>Key / Token</label><input id="add-key" type="password"></div>
+  <div style="margin-top:8px"><label>Model (optional)</label><input id="add-model"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" onclick="closeM()">Cancel</button><button class="btn" onclick="saveNewProvider()">Save</button></div>
+`;
+  openM();
+}
+function addProvider(){ const type=document.getElementById('prov-type').value; const key=document.getElementById('sk').value.trim(); const model=document.getElementById('sm').value.trim(); if(!key){ alert('Key required'); return } const id=Date.now().toString(); const label=`${type.toUpperCase()}${model? ' • '+model:''}`; S.providers.push({id,type,label,key,model}); lssj('providers',S.providers); S.activeProv=id; lss('activeProv',id); renderProviders(); updateProviderDisplay(); document.getElementById('setup').style.display='none'; }
+function saveNewProvider(){ const type=document.getElementById('add-type').value; const key=document.getElementById('add-key').value.trim(); const model=document.getElementById('add-model').value.trim(); if(!key){ alert('Key required'); return } const id=Date.now().toString(); const label=`${type.toUpperCase()}${model? ' • '+model:''}`; S.providers.push({id,type,label,key,model}); lssj('providers',S.providers); S.activeProv=id; lss('activeProv',id); renderProviders(); updateProviderDisplay(); closeM(); }
+function renderProviders(){ const el=document.getElementById('prov-list'); el.innerHTML=''; if(!S.providers.length){ el.innerHTML='<div style="color:rgba(255,255,255,.5)">No providers. Add one.</div>'; return } S.providers.forEach(p=>{ const d=document.createElement('div'); d.style.display='flex'; d.style.justifyContent='space-between'; const left=document.createElement('div'); left.textContent=p.label; left.style.cursor='pointer'; left.onclick=()=>{ S.activeProv=p.id; lss('activeProv',p.id); updateProviderDisplay(); renderProviders(); }; if(p.id===S.activeProv) left.style.color='var(--accent)'; const right=document.createElement('div'); right.innerHTML=`<button class='btn small' onclick="useProv('${p.id}')">Use</button> <button class='btn small' style='color:#ff6666' onclick="delProv('${p.id}')">Del</button>`; d.appendChild(left); d.appendChild(right); el.appendChild(d); }); }
+function useProv(id){ S.activeProv=id; lss('activeProv',id); updateProviderDisplay(); renderProviders(); }
+function delProv(id){ if(!confirm('Delete provider?')) return; S.providers=S.providers.filter(p=>p.id!==id); lssj('providers',S.providers); if(S.activeProv===id){ S.activeProv=S.providers[0]?.id||null; lss('activeProv',S.activeProv||''); } renderProviders(); updateProviderDisplay(); }
+function updateProviderDisplay(){ const prov=S.providers.find(p=>p.id===S.activeProv)||S.providers[0]; document.getElementById('mdisplay').textContent = prov? prov.label : 'No provider'; }
+
+function openM(){ document.getElementById('mbg').style.display='flex'; }
+function closeM(){ document.getElementById('mbg').style.display='none'; }
+
+// Messages UI
+function killEmpty(){ const e=document.getElementById('empty'); if(e) e.remove(); }
+function addMsgUI(role,text){ killEmpty(); const msgs=document.getElementById('msgs'); const d=document.createElement('div'); d.className='msg '+role; d.innerHTML = `<div class='mbub'>${escapeHtml(text)}</div>`; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; }
+function sysMsg(text){ addMsgUI('ai',text); }
+
+// Send
+async function sendMsg(){ if(S.streaming) return; const el=document.getElementById('cin'); const text=el.value.trim(); if(!text) return; el.value=''; addMsgUI('user',text); S.history.push({role:'user',parts:[{text}]}); S.msgCount++; S.streaming=true; try{ const resp = await callAI(S.history); addMsgUI('ai',resp); S.history.push({role:'model',parts:[{text:resp}]}); }catch(e){ addMsgUI('ai',`[Error: ${e.message}]`); } S.streaming=false; }
+
+async function callAI(history){ const prov = S.providers.find(p=>p.id===S.activeProv) || S.providers[0]; if(!prov) throw new Error('No provider configured'); const memCtx = buildMemCtx(); const sysText = S.soul + (memCtx? '\n\n=== PERSISTENT MEMORY ===\n'+memCtx : ''); if(prov.type==='openrouter') return callOpenRouter(prov, history, sysText); if(prov.type==='openai') return callOpenAI(prov, history, sysText); if(prov.type==='gemini') return callGemini(prov, history, sysText); if(prov.type==='anthropic') return callAnthropic(prov, history, sysText); throw new Error('Unsupported provider'); }
+
+async function callOpenRouter(prov, history, sysText){ // OpenRouter expects messages similar to OpenAI
+  const messages = [{role:'system',content:sysText}]; history.forEach(h=>{ const role = h.role==='user'?'user':'assistant'; messages.push({role,content:h.parts?.[0]?.text||''}); });
+  const body = { model: prov.model || 'or:gpt-4o-mini', messages, temperature:0.7, max_tokens:1024 };
+  const r = await fetch('https://api.openrouter.ai/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${prov.key}`}, body:JSON.stringify(body) });
+  if(!r.ok){ const err = await r.json().catch(()=>({})); const msg = err?.error?.message || `HTTP ${r.status}`; if(r.status===401||r.status===403) throw new Error('Invalid OpenRouter key'); throw new Error(msg); }
+  const d = await r.json(); // expect d.choices[0].message.content or d.choices[0].message
+  const choice = d.choices?.[0];
+  return choice?.message?.content || choice?.message || choice?.text || JSON.stringify(d);
+}
+
+async function callOpenAI(prov, history, sysText){ const messages=[{role:'system',content:sysText}]; history.forEach(h=>{ const role = h.role==='user'?'user':'assistant'; messages.push({role,content:h.parts?.[0]?.text||''}); }); const body={model:prov.model||'gpt-4o-mini',messages,temperature:0.7,max_tokens:1024}; const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${prov.key}`},body:JSON.stringify(body)}); if(!r.ok){const err=await r.json().catch(()=>({})); const msg=err?.error?.message||`HTTP ${r.status}`; if(r.status===401||r.status===403) throw new Error('Invalid OpenAI key'); throw new Error(msg);} const d=await r.json(); return d.choices?.[0]?.message?.content || d.choices?.[0]?.message || '[No response]'; }
+
+async function callGemini(prov, history, sysText){ const body={ system_instruction:{parts:[{text:sysText}]}, contents: history, generationConfig:{maxOutputTokens:1024,temperature:0.7} }; const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${prov.model||'gemini-2.0-flash'}:generateContent?key=${prov.key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok){const err=await r.json().catch(()=>({})); const msg=err?.error?.message||`HTTP ${r.status}`; throw new Error(msg);} const d=await r.json(); return d.candidates?.[0]?.content?.parts?.[0]?.text || '[No response]'; }
+
+async function callAnthropic(prov, history, sysText){ const conv = history.map(h=> (h.role==='user'?'Human: ':'Assistant: ')+ (h.parts?.[0]?.text||'')).join('\n\n'); const prompt = `${sysText}\n\n${conv}\n\nAssistant:`; const body={model:prov.model||'claude-2.1',prompt,max_tokens_to_sample:1000,temperature:0.7}; const r=await fetch('https://api.anthropic.com/v1/complete',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':prov.key},body:JSON.stringify(body)}); if(!r.ok){const err=await r.json().catch(()=>({})); const msg=err?.error?.message||`HTTP ${r.status}`; throw new Error(msg);} const d=await r.json(); return d.completion || '[No response]'; }
+
+// Memory (same basic implementation)
+function buildMemCtx(){ if(!S.memPkts.length) return ''; return S.memPkts.slice(-5).map((p,i)=>`[Packet ${i+1} — ${new Date(p.created).toLocaleDateString()}]\n${p.content}`).join('\n\n---\n\n'); }
+
+function compileMemory(){ if(S.history.filter(m=>m.role==='user').length<2){ alert('Not enough conversation to compile memory'); return; } const dump = S.history.filter(m=>!m.parts[0].text.startsWith('[MEMORY INJECTION')).map(m=>`${m.role.toUpperCase()}: ${m.parts[0].text}`).join('\n\n'); const prompt = `You are a memory compiler. Produce a structured memory packet for later injection.\n\nCONVERSATION:\n${dump}`; S.streaming=true; callAI([{role:'user',parts:[{text:prompt}]}], prompt).then(compiled=>{ showMemReview(compiled); S.streaming=false; }).catch(e=>{ alert('Compile error: '+e.message); S.streaming=false; }); }
+
+function showMemReview(draft){ document.getElementById('mc').innerHTML = `
+  <div style="font-family:var(--font-d);font-size:18px;color:var(--accent)">Memory packet</div>
+  <div style="margin-top:8px"><textarea id="mrdraft" style="width:100%;height:180px">${escapeHtml(draft)}</textarea></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn" onclick="closeM()">Close</button><button class="btn" onclick="approvePacket()">Save</button></div>
+`;
+  openM();
+}
+function approvePacket(){ const content=document.getElementById('mrdraft').value.trim(); if(!content) return; const pkt={id:Date.now().toString(),created:Date.now(),label:`Packet ${new Date().toLocaleString()}`,content}; S.memPkts.push(pkt); if(S.memPkts.length>20) S.memPkts.shift(); lssj('memPkts',S.memPkts); renderMem(); closeM(); alert('Saved'); }
+function renderMem(){ const el=document.getElementById('mlist'); el.innerHTML=''; if(!S.memPkts.length){ el.innerHTML='<div style="color:rgba(255,255,255,.5)">No memory packets</div>'; return } S.memPkts.slice().reverse().forEach(p=>{ const d=document.createElement('div'); d.style.padding='8px'; d.style.border='1px solid rgba(255,255,255,.02)'; d.style.borderRadius='8px'; d.style.cursor='pointer'; d.textContent = `${new Date(p.created).toLocaleString()} — ${p.label}`; d.onclick=()=>{ document.getElementById('mc').innerHTML = `<div style="font-family:var(--font-d);font-size:16px;color:var(--accent)">Memory</div><div style="margin-top:8px"><textarea style="width:100%;height:160px">${escapeHtml(p.content)}</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class='btn' onclick="closeM()">Close</button></div>`; openM(); }; el.appendChild(d); }); }
+
+// Settings
+function showSettings(){ const provHtml = S.providers.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>${escapeHtml(p.label)}</div><div><button class='btn small' onclick="useProv('${p.id}')">Use</button> <button class='btn small' onclick="delProv('${p.id}')" style='color:#ff6666'>Del</button></div></div>`).join(''); document.getElementById('mc').innerHTML = `<div style="font-family:var(--font-d);font-size:18px;color:var(--accent)">Settings</div><div style="margin-top:8px"><label>Providers</label>${provHtml || '<div style="color:rgba(255,255,255,.5)">No providers</div>'}<div style="margin-top:8px"><button class='btn' onclick="openAddProvider()">+ Add provider</button></div></div><div style="margin-top:12px"><label>Assistant prompt</label><textarea id='cfg-soul' style='height:120px'>${escapeHtml(S.soul)}</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class='btn' onclick='closeM()'>Close</button><button class='btn' onclick='saveSettings()'>Save</button></div>`; openM(); }
+function saveSettings(){ S.soul = document.getElementById('cfg-soul').value.trim(); lss('soul',S.soul); closeM(); alert('Saved'); }
+
+// Utils
+function onKey(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); } }
+function escapeHtml(s){ if(!s) return ''; return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+// initial rendering helpers
+function updateProviderDisplay(){ const prov=S.providers.find(p=>p.id===S.activeProv)||null; document.getElementById('mdisplay').textContent = prov?prov.label:'No provider'; }
+
+// Expose some helpers to console for quick local setup
+window.JAMIE = {S, renderProviders, renderMem};
+
+</script>
+</body>
+</html>
